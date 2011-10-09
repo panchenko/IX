@@ -18,6 +18,8 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 public class Connection implements Runnable {
 
     private final Server server;
@@ -38,6 +40,8 @@ public class Connection implements Runnable {
         new Thread(this).start();
     }
 
+    protected static final Logger LOGGER = Logger.getLogger(Connection.class);
+
     @Override
     public void run() {
         try {
@@ -46,19 +50,12 @@ public class Connection implements Runnable {
             }
         } catch (IOException e) {
             if (!socket.isClosed()) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                LOGGER.error(e);
             }
         } catch (IXProtocolException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            LOGGER.error(e);
         }
-        try {
-            socket.close();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        close();
         server.removeConnection(this);
     }
 
@@ -80,6 +77,7 @@ public class Connection implements Runnable {
         public void run() {
             final IService service = services.get(serviceName);
             if (service == null) {
+                LOGGER.warn("Unknown service " + serviceName + "." + methodName);
                 sendResponse(commandNumber, ResponseKind.ERROR, String.format("Service %s not found", serviceName));
                 return;
             }
@@ -87,22 +85,37 @@ public class Connection implements Runnable {
             try {
                 params = buffer != null ? Serialization.readParameters(buffer) : new Object[0];
             } catch (IOException e) {
+                LOGGER.warn("Error deserializing parameters for " + serviceName + "." + methodName, e);
                 sendResponse(commandNumber, ResponseKind.ERROR, e);
                 return;
             } catch (ClassNotFoundException e) {
+                LOGGER.warn("Error deserializing parameters for " + serviceName + "." + methodName, e);
                 sendResponse(commandNumber, ResponseKind.ERROR, e);
                 return;
+            }
+            if (LOGGER.isInfoEnabled()) {
+                final StringBuilder sb = new StringBuilder(128);
+                sb.append("Call ").append(serviceName).append(".").append(methodName);
+                if (params != null) {
+                    for (Object param : params) {
+                        sb.append(" ").append(param);
+                    }
+                }
+                LOGGER.info(sb);
             }
             final Object value;
             try {
                 value = service.call(methodName, params);
             } catch (IXRequestException e) {
+                LOGGER.warn("Error in " + serviceName + "." + methodName, e);
                 sendResponse(commandNumber, ResponseKind.ERROR, e);
                 return;
             } catch (IXRemoteException e) {
+                LOGGER.warn("Error in " + serviceName + "." + methodName, e);
                 sendResponse(commandNumber, ResponseKind.EXCEPTION, e);
                 return;
             }
+            LOGGER.info("Result (" + serviceName + "." + methodName + ") = " + value);
             if (value == null) {
                 sendResponse(commandNumber, ResponseKind.NULL, null);
             } else if (value == Results.VOID) {
@@ -147,16 +160,15 @@ public class Connection implements Runnable {
                 out.flush();
             }
         } catch (IOException e) {
-            // TODO
+            LOGGER.error("Error sending response", e);
         }
     }
 
     public void close() {
         try {
-            this.socket.close();
+            socket.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            LOGGER.error("Error closing socket", e);
         }
     }
 

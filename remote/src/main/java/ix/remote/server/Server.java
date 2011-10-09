@@ -10,6 +10,8 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.log4j.Logger;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -36,12 +38,14 @@ public class Server implements Runnable {
         return socket.getLocalPort();
     }
 
+    private static final Logger LOGGER = Logger.getLogger(Connection.class);
+
     public void close() {
         try {
             this.socket.close();
             this.thread.join();
         } catch (Exception e) {
-            // TODO
+            LOGGER.error("Error closing server", e);
         }
         final Connection[] connections;
         synchronized (this.clients) {
@@ -67,8 +71,7 @@ public class Server implements Runnable {
                 if (socket.isClosed()) {
                     return;
                 }
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                LOGGER.error(e);
             }
         }
     }
@@ -82,8 +85,7 @@ public class Server implements Runnable {
                 final Object instance = clazz.newInstance();
                 services.put(serviceName, new Service(instance));
             } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                LOGGER.error("Error creating service " + serviceName + "=" + className, e);
             }
         }
         return services;

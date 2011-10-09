@@ -20,8 +20,12 @@ public class SampleService {
         return System.currentTimeMillis();
     }
 
+    public static class SampleException extends RuntimeException {
+        private static final long serialVersionUID = 4447502073481425953L;
+    }
+
     public void error() {
-        throw new IllegalStateException();
+        throw new SampleException();
     }
 
 }

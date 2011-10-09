@@ -6,6 +6,7 @@ import ix.remote.client.IXRemoteException;
 import ix.remote.client.IXRequestException;
 import ix.remote.client.Results;
 import ix.remote.server.Server;
+import ix.remote.tests.SampleService.SampleException;
 
 import java.io.IOException;
 import java.util.Date;
@@ -90,7 +91,7 @@ public class NetworkTests {
             Assert.fail("error must throw exception");
         } catch (IXRemoteException e) {
             // expected
-            Assert.assertTrue(e.getCause() instanceof IllegalStateException);
+            Assert.assertTrue(e.getCause() instanceof SampleException);
         }
     }
 

@@ -1,5 +1,7 @@
 package ix.remote.client;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import ix.remote.protocol.Commands;
 import ix.remote.protocol.ResponseKind;
 import ix.remote.protocol.Serialization;
@@ -18,11 +20,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.Preconditions;
+import org.apache.log4j.Logger;
+
 import com.google.common.base.Throwables;
 import com.google.common.io.Closeables;
 
 public class Client {
+
+    private static final Logger LOGGER = Logger.getLogger(Client.class);
 
     private final Socket socket;
     private final DataInputStream in;
@@ -45,8 +50,7 @@ public class Client {
         try {
             socket.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            LOGGER.error("Error closing socket", e);
         }
     }
 
@@ -165,21 +169,34 @@ public class Client {
     private static final int MAX_STRING_LENGTH = Character.MAX_VALUE / 3;
 
     public Object call(String service, String method, Object... params) throws IOException, IXException {
-        Preconditions.checkNotNull(service);
-        Preconditions.checkArgument(service.length() < MAX_STRING_LENGTH);
-        Preconditions.checkNotNull(method);
-        Preconditions.checkArgument(method.length() < MAX_STRING_LENGTH);
+        checkNotNull(service);
+        checkArgument(service.length() < MAX_STRING_LENGTH);
+        checkNotNull(method);
+        checkArgument(method.length() < MAX_STRING_LENGTH);
+        if (LOGGER.isInfoEnabled()) {
+            final StringBuilder sb = new StringBuilder(128);
+            sb.append("Calling ").append(service).append(".").append(method);
+            for (Object param : params) {
+                sb.append(" ").append(param);
+            }
+            LOGGER.info(sb);
+        }
         final Request request = sendCall(service, method, params);
         waitResponse(request);
         switch (request.responseKind) {
         case ResponseKind.NULL:
+            LOGGER.info("Returning null");
             return null;
         case ResponseKind.VOID:
+            LOGGER.info("Returning VOID");
             return Results.VOID;
         case ResponseKind.OBJECT:
-            return request.getObject();
+            final Object value = request.getObject();
+            LOGGER.info("Returning " + value);
+            return value;
         case ResponseKind.EXCEPTION: {
             final Object exception = request.getObject();
+            LOGGER.info("Throwing " + exception);
             if (exception instanceof Throwable) {
                 Throwables.propagateIfInstanceOf((Throwable) exception, IXRemoteException.class);
                 throw new IXRemoteException((Throwable) exception);
@@ -189,6 +206,7 @@ public class Client {
         }
         case ResponseKind.ERROR: {
             final Object exception = request.getObject();
+            LOGGER.info("Throwing " + exception);
             if (exception instanceof Throwable) {
                 Throwables.propagateIfInstanceOf((Throwable) exception, IXRequestException.class);
                 throw new IXRequestException((Throwable) exception);
