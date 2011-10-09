@@ -118,8 +118,10 @@ public class NetworkTests {
         public void run() {
             try {
                 for (int i = 0; i < 10; ++i) {
-                    client.call(SampleService.class.getSimpleName(), "sleep", 500L);
-                    client.call(SampleService.class.getSimpleName(), "getCurrentDate");
+                    final Object value1 = client.call(SampleService.class.getSimpleName(), "sleep", 500L);
+                    Assert.assertSame(Results.VOID, value1);
+                    final Object value2 = client.call(SampleService.class.getSimpleName(), "getCurrentDate");
+                    Assert.assertTrue(value2 instanceof Date);
                     counter.incrementAndGet();
                 }
             } catch (Exception e) {
